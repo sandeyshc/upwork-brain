@@ -3,6 +3,7 @@ const express = require('express');
 const bodyParser = require('body-parser');
 var admin = require('firebase-admin');
 var firebase=require('firebase');
+const { response } = require('express');
 // const { reset } = require('nodemon');
 
 var firebaseConfig = {
@@ -30,15 +31,50 @@ app.use(express.urlencoded({ extended: true }));
 app.get('/', (req, res) => {
     res.send('Hello World!')
 })
-app.post('/login',(req,res)=>{
+app.post('/status',(req,res)=>{
     var emails=req.body.email
     var pass=req.body.password
     firebase.auth()
       .signInWithEmailAndPassword(emails, pass)
-      .then(() => {
-        res.send('authorized')
+      .then((userCredential) => {
+        uid=userCredential.user.uid
+        var db = firebase.database();
+    
+        var ref = db.ref(uid)
+
+        ref.once("value")
+        .then(function(snapshot) {
+
+          user_pres=snapshot.exists()
+          child_pres=snapshot.child('start_date').exists()
+        if(user_pres && child_pres){
+            res.status(200).json({
+                start_date:snapshot.child('start_date').val(),
+                end_date:snapshot.child('end_date').val(),
+                member_id:snapshot.key
+            })
+        }
+        else{
+                res.status(200).json({
+                active:"true",
+                member_id:userCredential.user.uid,
+                // member_id:userCredential.user.member_id
+            })
+        }
+        })
+
       }).catch((err) => {
-        res.send(err)
+          if(err.code=="auth/wrong-password"){
+              res.status(400).json({
+                  error:"incorrect email/password"
+              })
+          }
+          else if(err.code=="auth/user-not-found"){
+            res.status(404).json({
+                error:"email not found"
+            })
+     
+          }
       })
 })
 
@@ -48,27 +84,105 @@ app.post('/register',(req,res)=>{
     firebase.auth().createUserWithEmailAndPassword(emails, pass)
   .then((userCredential) => {
     // Signed in 
-    var user = userCredential.user.uid;
-    res.json({
-        user,
-        message:"registered user"
-    })
-    // ...
+    // var users = userCredential.user.member_id;
+    res.status(200).json({
+        success:'true',
+        member_id:userCredential.user.uid,
+        // check:userCredential.user,
+        // hhh:userCredential
   })
+})
   .catch((error) => {
-    res.json({
-        message:error
+    res.status(400).json({
+        success:'false',
+        error:'user already exists'
     })
     // ..
   });
+
 })
+
+
+
+app.post('/update',(req,res)=>{
+    var emails=req.body.email
+    var pass=req.body.password
+    firebase.auth().signInWithEmailAndPassword(emails, pass)
+  .then((userCredential) => {
+
+    var users = userCredential.user.uid;
+    var db = firebase.database();
+    var ref = db.ref(users);
+
+    ref.once("value")
+        .then(function(snapshot) {
+
+          user_pres=snapshot.exists()
+          child_pres=snapshot.child('start_date').exists()
+        if(user_pres && child_pres){
+
+            ref.update({
+                start_date:req.body.starts_at,
+                end_date:req.body.ends_at
+          }).then(()=>{
+            res.status(200).json({
+                success:'true',
+
+          })
+          })
+          .catch((err)=>{
+            res.status(400).json({
+                success:'false',
+
+          })
+          })
+
+        }
+        else{
+            ref.set({
+                start_date:req.body.starts_at,
+                end_date:req.body.ends_at
+          }).then(()=>{
+            res.status(200).json({
+                success:'true',
+
+          })
+          })
+          .catch((err)=>{
+            res.status(400).json({
+                success:'false',
+
+          })
+          })
+        }
+    
+    })
+
+
+
+
+})
+.catch((err)=>{
+    res.status(400).json({
+        success:'false',
+
+  })
+})
+
+
+})
+
+
+
 
 app.post('/reset',(req,res)=>{
     var emails=req.body.email
     firebase.auth().sendPasswordResetEmail(emails).then(function() {
-        res.send('email verification sent')
+        res.status(200).json({success:'true'})
       }).catch(function(error) {
-        res.send(error)
+        res.status(400).json({
+            error:"email not found"
+        })
       });
 })
 
