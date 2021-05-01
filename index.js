@@ -3,7 +3,7 @@ const express = require('express');
 const bodyParser = require('body-parser');
 var admin = require('firebase-admin');
 var firebase=require('firebase');
-const { reset } = require('nodemon');
+// const { reset } = require('nodemon');
 
 var firebaseConfig = {
     apiKey: "AIzaSyAXhTF7539rUBLSqVvbW3oqxQn8-TrmqG8",
